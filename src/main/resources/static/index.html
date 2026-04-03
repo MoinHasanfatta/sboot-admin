@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Auth App</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: #f4f6f9; display: flex;
+            justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: white; border-radius: 12px; padding: 36px;
+            width: 380px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        h2 { margin-bottom: 20px; color: #333; text-align: center; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0 14px;
+            border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        button { width: 100%; padding: 11px; border: none; border-radius: 8px;
+            background: #4f46e5; color: white; font-size: 15px;
+            cursor: pointer; margin-top: 4px; }
+        button:hover { background: #4338ca; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+        .tab { flex: 1; padding: 9px; text-align: center; border-radius: 8px;
+            border: 1px solid #ddd; cursor: pointer; font-size: 14px; }
+        .tab.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+        .section { display: none; }
+        .section.active { display: block; }
+        #msg { margin-top: 16px; padding: 10px; border-radius: 8px;
+            font-size: 13px; display: none; }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+        #protected-section { margin-top: 18px; display: none; }
+        #protected-section button { background: #10b981; margin-top: 8px; }
+        #protected-section button:hover { background: #059669; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Auth App</h2>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('login')">Login</div>
+        <div class="tab" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <!-- Login -->
+    <div id="login" class="section active">
+        <label for="l-username"></label><input type="text" id="l-username" placeholder="Username"/>
+        <label for="l-password"></label><input type="password" id="l-password" placeholder="Password"/>
+        <button onclick="doLogin()">Login</button>
+    </div>
+
+    <!-- Register -->
+    <div id="register" class="section">
+        <label for="r-username"></label><input type="text" id="r-username" placeholder="Username"/>
+        <label for="r-password"></label><input type="password" id="r-password" placeholder="Password"/>
+        <label for="r-role"></label><select id="r-role">
+            <option value="ROLE_USER">User</option>
+            <option value="ROLE_ADMIN">Admin</option>
+        </select>
+        <button onclick="doRegister()">Register</button>
+    </div>
+
+    <div id="msg"></div>
+
+    <!-- Protected actions (shown after login) -->
+    <div id="protected-section">
+        <button onclick="callAdmin()">Call Admin Dashboard</button>
+        <button onclick="callUser()">Call User Home</button>
+    </div>
+</div>
+
+<script>
+    const BASE_URL = "http://localhost:8080"; // your backend port
+    let jwtToken = null;
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach((t, i) =>
+            t.classList.toggle('active', ['login','register'][i] === tab));
+        document.querySelectorAll('.section').forEach(s =>
+            s.classList.toggle('active', s.id === tab));
+        hideMsg();
+    }
+
+    function showMsg(text, type) {
+        const el = document.getElementById('msg');
+        el.textContent = text;
+        el.className = type;
+        el.style.display = 'block';
+    }
+
+    function hideMsg() {
+        document.getElementById('msg').style.display = 'none';
+    }
+
+    async function doRegister() {
+        const username = document.getElementById('r-username').value;
+        const password = document.getElementById('r-password').value;
+        const role = document.getElementById('r-role').value;
+        try {
+            const res = await fetch( BASE_URL + '/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, role })
+            });
+            const text = await res.text();
+            showMsg(text, res.ok ? 'success' : 'error');
+        } catch (e) { showMsg('Error: ' + e.message, 'error'); }
+    }
+
+    async function doLogin() {
+        const username = document.getElementById('l-username').value;
+        const password = document.getElementById('l-password').value;
+        try {
+            const res = await fetch( BASE_URL + '/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (res.ok) {
+                jwtToken = await res.text();
+                showMsg('Login successful! Token saved.', 'success');
+                document.getElementById('protected-section').style.display = 'block';
+            } else {
+                const text = await res.text();
+                showMsg('Login failed: ' + text, 'error');
+            }
+        } catch (e) { showMsg('Error: ' + e.message, 'error'); }
+    }
+
+    async function callAdmin() {
+        const res = await fetch('/api/admin/dashboard', {
+            headers: { 'Authorization': 'Bearer ' + jwtToken }
+        });
+        const text = await res.text();
+        showMsg(res.ok ? text : '403 Forbidden - Not an admin', res.ok ? 'success' : 'error');
+    }
+
+    async function callUser() {
+        const res = await fetch('/api/user/home', {
+            headers: { 'Authorization': 'Bearer ' + jwtToken }
+        });
+        const text = await res.text();
+        showMsg(res.ok ? text : '403 Forbidden - Not a user', res.ok ? 'success' : 'error');
+    }
+</script>
+</body>
+</html>
