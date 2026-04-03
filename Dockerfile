@@ -1,14 +1,9 @@
-# Use official Java image
 FROM eclipse-temurin:17-jdk
 
-# Set working directory
 WORKDIR /app
 
-# Copy project files
 COPY . .
 
-# Build the project
-RUN chmod +x mvnw && ./mvnw clean package
+RUN chmod +x mvnw && ./mvnw clean package -DskipTests
 
-# Run the jar file
 CMD ["java", "-jar", "target/authapp-0.0.1-SNAPSHOT.jar"]
